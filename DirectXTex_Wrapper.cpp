@@ -309,6 +309,47 @@ namespace DirectXTexWrapperCLI
     }
 
     // -----------------------
+    // DdsMetadata constructor + Loader::GetDdsMetadata
+      // -----------------------
+        DdsMetadata::DdsMetadata()
+        : Width(0), Height(0), MipCount(0), DxgiFormat(0),
+        Faces(0), IsCubemap(false), HeaderSize(0), Loaded(false)
+    {
+    }
+
+     // -----------------------
+    // Loader: Metadata
+    // -----------------------
+        DdsMetadata^ Loader::GetDdsMetadata(array<Byte>^ ddsBytes) {
+            auto out = gcnew DdsMetadata();
+            out->Loaded = false;
+            if (ddsBytes == nullptr || ddsBytes->Length < 4) return out;
+
+            pin_ptr<Byte> pData = &ddsBytes[0];
+            DirectX::TexMetadata meta = {};                
+                HRESULT hr = DirectX::GetMetadataFromDDSMemory(
+                    reinterpret_cast<const uint8_t*>(pData),
+                    static_cast<size_t>(ddsBytes->Length),
+                    DirectX::DDS_FLAGS_NONE, meta
+                );
+            if (FAILED(hr)) return out;
+
+            out->Width = static_cast<int>(meta.width);
+            out->Height = static_cast<int>(meta.height);
+            out->MipCount = static_cast<int>(meta.mipLevels);
+            out->DxgiFormat = static_cast<int>(meta.format);
+            out->IsCubemap = meta.IsCubemap();
+            out->Faces = out->IsCubemap ? 6 : 1;
+
+            bool hasDx10 = (ddsBytes->Length >= 88) &&
+                (ddsBytes[84] == 'D' && ddsBytes[85] == 'X' &&
+                    ddsBytes[86] == '1' && ddsBytes[87] == '0');
+            out->HeaderSize = hasDx10 ? 148 : 128;
+            out->Loaded = true;
+            return out;
+        }
+
+    // -----------------------
     // Loader: LoadTextures
     // -----------------------
     List<TextureLoaded^>^ Loader::LoadTextures(array<array<Byte>^>^ ddsFiles, bool useCompress, bool forceOpenGL)
@@ -860,6 +901,9 @@ namespace DirectXTexWrapperCLI
 
         return result;
     }
+
+
+
 
 } // namespace DirectXTexWrapperCLI
 

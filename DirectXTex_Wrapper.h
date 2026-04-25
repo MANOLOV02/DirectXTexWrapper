@@ -104,6 +104,20 @@ namespace DirectXTexWrapperCLI
         TextureConversionResult();
     };
 
+    public ref class DdsMetadata
+    {
+    public:
+        int Width;
+        int Height;
+        int MipCount;
+        int DxgiFormat;
+        int Faces;
+        bool IsCubemap;
+        int HeaderSize;
+        bool Loaded;
+        DdsMetadata();
+    };
+
     /// <summary>Loader methods replacing P/Invoke.</summary>
     public ref class Loader
     {
@@ -112,6 +126,8 @@ namespace DirectXTexWrapperCLI
         static TextureLoaded^ ConvertForBitmap(array<Byte>^ ddsFile);
         static TextureConversionResult^ ConvertSubresources(TextureConversionRequest^ request);
         static array<System::Byte>^ EncodeDDSHeader(int dxgiFormat, int width, int height, int arraySize, int mipLevels, bool isCubemap);
+        static DdsMetadata^ GetDdsMetadata(array<Byte>^ ddsBytes);   // ← agregar acá
+
     };
 
 } // namespace DirectXTexWrapperCLI
