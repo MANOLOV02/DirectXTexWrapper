@@ -153,7 +153,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
-      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2022_Win10\Win32\Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\Win32\Debug</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -181,7 +181,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
-      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2022_Win10\Win32\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\Win32\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -209,7 +209,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
-      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2022_Win10\Win32\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\Win32\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -234,7 +234,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
-      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2022_Win10\x64\Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\x64\Debug</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -261,7 +261,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
-      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2022_Win10\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -288,7 +288,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
-      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2022_Win10\x64\Release</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
