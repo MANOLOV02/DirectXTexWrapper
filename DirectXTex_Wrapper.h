@@ -113,6 +113,12 @@ namespace DirectXTexWrapperCLI
         int DxgiFormat;
         int Faces;
         bool IsCubemap;
+        /// <summary>Cuantos elementos tiene el array de texturas (6 en un cubemap, 1 en una 2D suelta).
+        /// <para>⛔ EXISTE PORQUE `Faces` NO ALCANZA: se calcula como `IsCubemap ? 6 : 1`, asi que para un
+        /// Texture2DArray de N elementos vale 1 y una guarda del tipo "no es cubemap y Faces &lt;= 1" da
+        /// verdadero — o sea, promete excluir arrays y no excluye ninguno. Este es el dato real de
+        /// `TexMetadata::arraySize`.</para></summary>
+        int ArraySize;
         int HeaderSize;
         bool Loaded;
         DdsMetadata();
@@ -123,8 +129,22 @@ namespace DirectXTexWrapperCLI
     {
     public:
         static List<TextureLoaded^>^ LoadTextures(array<array<Byte>^>^ ddsFiles, bool useCompress, bool forceOpenGL);
+        /// <summary>Igual que LoadTextures, pero decodificando UN SOLO nivel de mip.
+        /// <para><paramref name="onlyMipLevel"/> &lt; 0 = la cadena entera (idéntico a la sobrecarga de
+        /// tres argumentos). Con un nivel concreto, la descompresión BCn se hace sólo sobre ese nivel:
+        /// el consumidor que elige un mip y descarta los demás pagaba entre 25 % y 29 % de trabajo de
+        /// más, medido con Tools/TexCodecPerfProbe.</para>
+        /// <para>El resultado trae ese nivel en <c>Levels[0..Faces-1]</c> y <c>Miplevels = 1</c>.</para>
+        /// <para>⛔ Si el nivel NO existe en un archivo del lote, ESE archivo vuelve con
+        /// <c>Loaded = false</c> — no se tira, y los demás del lote se decodifican igual. Es la misma
+        /// señal que usan todos los otros caminos de fallo de la función.</para></summary>
+        static List<TextureLoaded^>^ LoadTextures(array<array<Byte>^>^ ddsFiles, bool useCompress, bool forceOpenGL, int onlyMipLevel);
         static TextureLoaded^ ConvertForBitmap(array<Byte>^ ddsFile);
         static TextureConversionResult^ ConvertSubresources(TextureConversionRequest^ request);
+        /// <summary>Misma conversión que ConvertSubresources pero devuelve el DDS completo
+        /// (header + payload) en UN solo array, sin materializar un array por subrecurso ni la
+        /// concatenación intermedia. Payload en el orden del formato DDS: array-major, después mip.</summary>
+        static array<System::Byte>^ ConvertSubresourcesToDds(TextureConversionRequest^ request);
         static array<System::Byte>^ EncodeDDSHeader(int dxgiFormat, int width, int height, int arraySize, int mipLevels, bool isCubemap);
         static DdsMetadata^ GetDdsMetadata(array<Byte>^ ddsBytes);   // ← agregar acá
 
