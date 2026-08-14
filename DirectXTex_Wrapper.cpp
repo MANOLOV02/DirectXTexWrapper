@@ -453,6 +453,24 @@ namespace DirectXTexWrapperCLI
             bool compatibleGL = fmap && fmap->glInternalFormat && (!compressed || useCompress);
             bool needsDecompress = (compressed && !useCompress) || (forceOpenGL && !compatibleGL);
 
+            // ⛔ EL RANGO DE `onlyMipLevel` SE MIRA ACA, ANTES DE DESCOMPRIMIR. El chequeo vivia abajo, tras
+            // el Decompress: un nivel fuera de rango pagaba la cadena BCn ENTERA y recien despues devolvia
+            // Loaded=false, o sea el peor camino de CPU y memoria justo para la entrada invalida.
+            // ⛔ NO ES EL ARREGLO DE UN BUG OBSERVADO, y conviene que quede escrito: el unico llamador
+            // (`FaceTintCpuCompositor.DecodeDds`) deriva el nivel de `GetDdsMetadata`, que usa el MISMO
+            // parser y los MISMOS flags (`GetMetadataFromDDSMemory` / `LoadFromDDSMemory`, ambos
+            // DDS_FLAGS_NONE) ⇒ el indice SIEMPRE cae en rango, y un payload truncado ya muere antes, en el
+            // LoadFromDDSMemory. Esto es el contrato de una API publica, que cualquiera puede llamar con un
+            // numero arbitrario.
+            // ⛔ TIENE QUE IR ANTES del `finalImg = std::move(image)` de mas abajo: despues, `meta` sigue
+            // apuntando al metadata de `image`, que el move dejo en CERO, y `mipLevels == 0` rechazaria
+            // TODOS los niveles.
+            if (onlyMipLevel >= 0 && static_cast<size_t>(onlyMipLevel) >= meta->mipLevels)
+            {
+                output->Add(texfb);
+                continue;
+            }
+
             // ⭐ RECORTE A UN NIVEL, Y SOLO SI VA A DESCOMPRIMIR.
             // Lo caro es la descompresion BCn, asi que el recorte tiene que pasar ANTES de ella: recortar
             // al final no ahorra nada. Pero recortar cuando NO hay descompresion es peor que no hacerlo:
@@ -558,6 +576,18 @@ namespace DirectXTexWrapperCLI
             tex->IsCubemap = meta->IsCubemap() != 0;
             tex->Loaded = true;
             const int nivelesDisponibles = max(1, static_cast<int>(finalImg.GetMetadata().mipLevels));
+
+            // ⛔⛔ UN DDS VOLUMETRICO SALIA COMO UNA 2D VALIDA, CON UNA SOLA SLICE. DirectXTex pone
+            // arraySize=1 y depth=N para un volumen, asi que `Faces` da 1 y NINGUNA guarda de VB lo ve
+            // (`TextureLoaded` no expone `depth`). El loop de abajo hace `GetImage(m, f, 0)` = slice 0 y
+            // nada mas, y devolvia `Loaded = true`: el consumidor recibia la primera lamina de un LUT 3D
+            // creyendo que era la textura entera. Esto SOLO se puede cerrar acá.
+            if (finalImg.GetMetadata().depth != 1)
+            {
+                output->Add(texfb);
+                continue;
+            }
+
             tex->Faces = static_cast<int>(finalImg.GetMetadata().arraySize); // cast explícito
 
             // Que niveles se MATERIALIZAN como arrays administrados. Si se pidio uno solo y no hubo
@@ -581,6 +611,14 @@ namespace DirectXTexWrapperCLI
                 // termina en `Catch : Return Nothing`, asi que la excepcion no evitaba nada: cambiaba "mip
                 // equivocado" por "textura entera perdida y sin log". Con `Loaded = false` el consumidor se
                 // entera por el camino que ya chequea.
+                //
+                // ⛔ HOY ESTA RAMA ES INALCANZABLE, y queda de RED. El rechazo real vive arriba, antes del
+                // Decompress. Es inalcanzable por construccion: llegar aca exige `!recortado`, y sin recorte
+                // ni `Decompress` ni `Convert` cambian `mipLevels`, asi que `nivelesDisponibles` es el mismo
+                // numero que ya se comparo contra la fuente. Se conserva porque el orden de los pasos de esta
+                // funcion cambio dos veces: si alguien vuelve a mover el recorte, esto es lo que evita que un
+                // nivel fuera de rango salga como mip 0 con `Miplevels` mintiendo. La POLITICA de fallo
+                // (Loaded=false y no una excepcion) esta explicada arriba y sigue valiendo para los dos.
                 if (onlyMipLevel >= nivelesDisponibles)
                 {
                     output->Add(texfb);
