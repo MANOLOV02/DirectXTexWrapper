@@ -101,6 +101,12 @@ namespace DirectXTexWrapperCLI
         int FilterFlags;
         int CompressFlags;
         float AlphaThreshold;
+        /// <summary>Encoder for BC6H / BC7 (DxtCodec::Encoder): 0 Auto - the GPU (DirectCompute, ~30x faster, other
+        /// bytes than the CPU encoder) when a D3D11 device exists, the CPU otherwise or if the GPU fails; 1 Cpu;
+        /// 2 Gpu - the GPU or an error. Other formats always use the CPU encoder. Default 0.</summary>
+        int Encoder;
+        /// <summary>The GPU BC7 encoder's alpha error weight (texconv -aw). Default 1 (TEX_ALPHA_WEIGHT_DEFAULT).</summary>
+        float AlphaWeight;
         TextureConversionRequest();
     };
 
@@ -164,6 +170,9 @@ namespace DirectXTexWrapperCLI
         static array<System::Byte>^ ConvertSubresourcesToDds(TextureConversionRequest^ request);
         static array<System::Byte>^ EncodeDDSHeader(int dxgiFormat, int width, int height, int arraySize, int mipLevels, bool isCubemap);
         static DdsMetadata^ GetDdsMetadata(array<Byte>^ ddsBytes);   // ← agregar acá
+        /// <summary>Whether this process has a DirectCompute-capable D3D11 device for the GPU BC6H / BC7 encoder
+        /// (created on the first call; DxtCodec::GpuAvailable).</summary>
+        static bool GpuEncoderAvailable();
 
     };
 

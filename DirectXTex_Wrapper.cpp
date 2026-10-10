@@ -21,6 +21,7 @@
 #include <DirectXTex.h>
 #include "OpenGL_MapFormats.h"
 #include "OpenGL_MapFormats_FallBacks.h"
+#include "DxtCodec/DxtCodec.h"
 
 #include <vector>
 #include <cstring>
@@ -36,6 +37,10 @@ using namespace msclr;
 
 namespace DirectXTexWrapperCLI
 {
+    // the BCn decompression law lives in DxtCodec (shared with DxtCodecC: FabricGen)
+    using DxtCodec::UsoDeDescompresion;
+    using DxtCodec::FormatoDeDescompresion;
+
     static size_t CalculateMipExtent(size_t baseExtent, size_t mipLevel) noexcept
     {
         size_t value = baseExtent >> mipLevel;
@@ -51,84 +56,6 @@ namespace DirectXTexWrapperCLI
         }
 
         return height > 0 ? height : 1;
-    }
-
-    // ===============================================================================================
-    // ⭐ LA LEY DE "A QUE FORMATO DESCOMPRIMIR UN BCn", ESCRITA UNA VEZ, CON EL USO DECLARADO.
-    //
-    // ⛔ Estaba transcripta TRES veces —acá, adentro de LoadTextures y adentro de ConvertForBitmap— y
-    // las tres NO decian lo mismo. Al factorizarla aparecieron DOS ejes en los que los llamadores
-    // difieren de verdad. Ninguno es accidental: cada uno responde a un requisito distinto, y por eso
-    // van como USO declarado y no como cuatro copias sueltas.
-    //
-    //   EJE 1 · sRGB. `ConvertForBitmap` SIEMPRE quiere lineal: su destino es un Bitmap .NET BGRA8
-    //   lineal. Los otros dos conservan el sRGB de la fuente.
-    //
-    //   EJE 2 · SIGNO. La tuberia de conversion tiene que preservar SNORM porque re-encodear es una
-    //   transformacion FIEL: mandar SNORM a UNORM satura la mitad negativa a 0 y ademas recuantiza
-    //   (127 pasos -> 255). Los dos caminos de DECODE, en cambio, tienen que aterrizar en UNORM, porque
-    //   la tabla de canales del lado administrado (`FaceTintCpuCompositor.CanalesDelFormatoDecodificado`)
-    //   conoce 49/61 (R8G8_UNORM / R8_UNORM) y NO conoce 51/63 (R8G8_SNORM / R8_SNORM) — ojo con
-    //   confundirlos con 50/62, que son los UINT. Y es lo que esos dos caminos ya hacian en produccion.
-    //
-    // ⛔⛔ EL EJE DEL SIGNO LO ENCONTRO UN REVISOR, NO MI GATE. Yo habia unificado los tres a UNORM y lo
-    // declare byte-neutro apoyandome en la fixture `huecos`... que digeria
-    // `ConvertLoadedTextureToDdsBytes` con salida BC3. Con salida COMPRIMIDA la llave de la tabla es el
-    // formato de SALIDA, asi que el eje de la ENTRADA nunca se tocaba: el gate estaba verde midiendo
-    // otra cosa. El caso que si lo ejercita es entrada BCn SNORM con salida SIN COMPRIMIR, y ahora esta
-    // en la fixture.
-    // ===============================================================================================
-    enum class UsoDeDescompresion
-    {
-        PipelineDeConversion,   // re-encode: fiel — conserva sRGB y conserva el signo
-        ConsumoCpuOGl,          // LoadTextures: conserva sRGB, aterriza SNORM en UNORM
-        BitmapAdministrado      // ConvertForBitmap: siempre lineal, aterriza SNORM en UNORM
-    };
-
-    static DXGI_FORMAT FormatoDeDescompresion(DXGI_FORMAT srcFmt, UsoDeDescompresion uso) noexcept
-    {
-        const bool preservarSrgb = (uso != UsoDeDescompresion::BitmapAdministrado);
-        const bool preservarSigno = (uso == UsoDeDescompresion::PipelineDeConversion);
-
-        switch (srcFmt)
-        {
-        case DXGI_FORMAT_BC6H_UF16:
-        case DXGI_FORMAT_BC6H_SF16:
-            return DXGI_FORMAT_R16G16B16A16_FLOAT;
-
-        case DXGI_FORMAT_BC4_UNORM:
-            return DXGI_FORMAT_R8_UNORM;
-
-        case DXGI_FORMAT_BC4_SNORM:
-            return preservarSigno ? DXGI_FORMAT_R8_SNORM : DXGI_FORMAT_R8_UNORM;
-
-        case DXGI_FORMAT_BC5_UNORM:
-            return DXGI_FORMAT_R8G8_UNORM;
-
-        case DXGI_FORMAT_BC5_SNORM:
-            return preservarSigno ? DXGI_FORMAT_R8G8_SNORM : DXGI_FORMAT_R8G8_UNORM;
-
-        case DXGI_FORMAT_BC1_UNORM:
-        case DXGI_FORMAT_BC1_UNORM_SRGB:
-        case DXGI_FORMAT_BC2_UNORM:
-        case DXGI_FORMAT_BC2_UNORM_SRGB:
-        case DXGI_FORMAT_BC3_UNORM:
-        case DXGI_FORMAT_BC3_UNORM_SRGB:
-        case DXGI_FORMAT_BC7_UNORM:
-        case DXGI_FORMAT_BC7_UNORM_SRGB:
-            return (preservarSrgb && DirectX::IsSRGB(srcFmt))
-                ? DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
-                : DXGI_FORMAT_R8G8B8A8_UNORM;
-
-        default:
-            // ⛔ El `default` tambien difiere por uso, y NO por capricho: la copia del pipeline devolvia
-            // R8G8B8A8_UNORM y las de decode UNKNOWN. Para el pipeline UNKNOWN es mejor (que elija
-            // DirectXTex el natural del formato) pero cambiaria bytes en un formato exotico, asi que se
-            // conserva lo que cada camino hacia.
-            return (uso == UsoDeDescompresion::PipelineDeConversion)
-                ? DXGI_FORMAT_R8G8B8A8_UNORM
-                : DXGI_FORMAT_UNKNOWN;
-        }
     }
 
     // ===============================================================================================
@@ -331,7 +258,9 @@ namespace DirectXTexWrapperCLI
         AutoGenerateMipMaps(false),
         FilterFlags(static_cast<int>(TEX_FILTER_DEFAULT)),
         CompressFlags(static_cast<int>(TEX_COMPRESS_DEFAULT)),
-        AlphaThreshold(TEX_THRESHOLD_DEFAULT)
+        AlphaThreshold(TEX_THRESHOLD_DEFAULT),
+        Encoder(static_cast<int>(DxtCodec::Encoder::Auto)),
+        AlphaWeight(TEX_ALPHA_WEIGHT_DEFAULT)
     {}
 
     TextureConversionResult::TextureConversionResult()
@@ -353,7 +282,12 @@ namespace DirectXTexWrapperCLI
      // -----------------------
     // Loader: Metadata
     // -----------------------
-        DdsMetadata^ Loader::GetDdsMetadata(array<Byte>^ ddsBytes) {
+        bool Loader::GpuEncoderAvailable()
+    {
+        return DxtCodec::GpuAvailable();
+    }
+
+    DdsMetadata^ Loader::GetDdsMetadata(array<Byte>^ ddsBytes) {
             auto out = gcnew DdsMetadata();
             out->Loaded = false;
             if (ddsBytes == nullptr || ddsBytes->Length < 4) return out;
@@ -908,97 +842,34 @@ namespace DirectXTexWrapperCLI
         }
 
         workingImage = std::move(sourceImage);
-        bool willGenerateMipMaps = autoGenerateMipMaps && (requestedMipLevels != 1u);
 
-        if (DirectX::IsCompressed(inputFormat) && ((inputFormat != outputFormat) || willGenerateMipMaps))
+        // the native steps: DxtCodec::RunConversion (shared with DxtCodecC: FabricGen); the step that failed
+        // keeps its exception and message here
+        DxtCodec::ConversionOptions options;
+        options.autoGenerateMipMaps = autoGenerateMipMaps;
+        options.mipLevels = requestedMipLevels;
+        options.filterFlags = static_cast<TEX_FILTER_FLAGS>(request->FilterFlags);
+        options.alphaThreshold = request->AlphaThreshold;
+        options.compressFlags = static_cast<TEX_COMPRESS_FLAGS>(request->CompressFlags);
+        options.alphaWeight = request->AlphaWeight;
+        options.encoder = static_cast<DxtCodec::Encoder>(request->Encoder);
+        DxtCodec::ConversionStep failed = DxtCodec::ConversionStep::None;
+        hr = DxtCodec::RunConversion(workingImage, outputFormat, options, failed);
+        if (FAILED(hr))
         {
-            // Misma ley, distinta LLAVE: si la salida es comprimida hay que aterrizar en el formato
-            // canonico que ESA compresion consume; si no, en el natural de la ENTRADA. Antes eran dos
-            // funciones y una de ellas se contradecia con la otra en el mismo ternario.
-            const DXGI_FORMAT llave = DirectX::IsCompressed(outputFormat) ? outputFormat : inputFormat;
-            const DXGI_FORMAT decompressFormat = FormatoDeDescompresion(llave, UsoDeDescompresion::PipelineDeConversion);
-
-            ScratchImage decompressedImage;
-            hr = DirectX::Decompress(
-                workingImage.GetImages(),
-                workingImage.GetImageCount(),
-                workingImage.GetMetadata(),
-                decompressFormat,
-                decompressedImage);
-            if (FAILED(hr))
-                throw gcnew InvalidOperationException("Unable to decompress the input texture.");
-
-            workingImage = std::move(decompressedImage);
-        }
-
-        if (willGenerateMipMaps)
-        {
-            ScratchImage mipmappedImage;
-            hr = DirectX::GenerateMipMaps(
-                workingImage.GetImages(),
-                workingImage.GetImageCount(),
-                workingImage.GetMetadata(),
-                static_cast<TEX_FILTER_FLAGS>(request->FilterFlags),
-                requestedMipLevels,
-                mipmappedImage);
-            if (FAILED(hr))
-                throw gcnew InvalidOperationException("Unable to auto-generate mipmaps for the requested texture.");
-
-            workingImage = std::move(mipmappedImage);
-        }
-
-        if (DirectX::IsCompressed(outputFormat))
-        {
-            if (workingImage.GetMetadata().format != outputFormat)
+            switch (failed)
             {
-                DXGI_FORMAT canonicalFormat = FormatoDeDescompresion(outputFormat, UsoDeDescompresion::PipelineDeConversion);
-                if (workingImage.GetMetadata().format != canonicalFormat)
-                {
-                    ScratchImage canonicalImage;
-                    hr = DirectX::Convert(
-                        workingImage.GetImages(),
-                        workingImage.GetImageCount(),
-                        workingImage.GetMetadata(),
-                        canonicalFormat,
-                        static_cast<TEX_FILTER_FLAGS>(request->FilterFlags),
-                        request->AlphaThreshold,
-                        canonicalImage);
-                    if (FAILED(hr))
-                        throw gcnew InvalidOperationException("Unable to convert to the intermediate format needed for compression.");
-
-                    workingImage = std::move(canonicalImage);
-                }
-
-                ScratchImage compressedImage;
-                hr = DirectX::Compress(
-                    workingImage.GetImages(),
-                    workingImage.GetImageCount(),
-                    workingImage.GetMetadata(),
-                    outputFormat,
-                    static_cast<TEX_COMPRESS_FLAGS>(request->CompressFlags),
-                    request->AlphaThreshold,
-                    compressedImage);
-                if (FAILED(hr))
-                    throw gcnew InvalidOperationException("Unable to compress to the requested output format.");
-
-                workingImage = std::move(compressedImage);
-            }
-        }
-        else if (workingImage.GetMetadata().format != outputFormat)
-        {
-            ScratchImage convertedImage;
-            hr = DirectX::Convert(
-                workingImage.GetImages(),
-                workingImage.GetImageCount(),
-                workingImage.GetMetadata(),
-                outputFormat,
-                static_cast<TEX_FILTER_FLAGS>(request->FilterFlags),
-                request->AlphaThreshold,
-                convertedImage);
-            if (FAILED(hr))
+            case DxtCodec::ConversionStep::Decompress:
+                throw gcnew InvalidOperationException("Unable to decompress the input texture.");
+            case DxtCodec::ConversionStep::MipMaps:
+                throw gcnew InvalidOperationException("Unable to auto-generate mipmaps for the requested texture.");
+            case DxtCodec::ConversionStep::Canonical:
+                throw gcnew InvalidOperationException("Unable to convert to the intermediate format needed for compression.");
+            case DxtCodec::ConversionStep::Compress:
+                throw gcnew InvalidOperationException("Unable to compress to the requested output format.");
+            default:
                 throw gcnew InvalidOperationException("Unable to convert to the requested output format.");
-
-            workingImage = std::move(convertedImage);
+            }
         }
     }
 

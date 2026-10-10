@@ -114,7 +114,7 @@
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
       <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\Win32\Debug</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib;d3d11.lib;dxgi.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -142,7 +142,7 @@
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
       <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\Win32\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib;d3d11.lib;dxgi.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -167,7 +167,7 @@
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
       <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\x64\Debug</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib;d3d11.lib;dxgi.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -194,7 +194,7 @@
       <EnableUAC>false</EnableUAC>
       <CLRImageType>Default</CLRImageType>
       <AdditionalLibraryDirectories>..\DirectXTex\DirectXTex\Bin\Desktop_2026\x64\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);DirectXTex.lib;d3d11.lib;dxgi.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>
@@ -203,12 +203,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="DirectXTex_Wrapper.h" />
+    <ClInclude Include="DxtCodec\DxtCodec.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="OpenGL_MapFormats.h" />
     <ClInclude Include="OpenGL_MapFormats_FallBacks.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DirectXTex_Wrapper.cpp" />
+    <ClCompile Include="DxtCodec\DxtCodec.cpp">
+      <CompileAsManaged>false</CompileAsManaged>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="OpenGL_MapFormats.cpp" />
     <ClCompile Include="OpenGL_MapFormats_FallBacks.cpp" />
   </ItemGroup>
